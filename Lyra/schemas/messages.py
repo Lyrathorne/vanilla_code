@@ -1,9 +1,7 @@
-from dataclasses import dataclass
-from schemas.users import User
-@dataclass
-class Message:
-    sender: User
-    text: str
-    timestamp: str
+from pydantic import BaseModel, Field
 
+class Message(BaseModel):
+    chat_id: int
+    sender_id: int
+    text: str = Field(min_length=1, max_length=1000)
     
