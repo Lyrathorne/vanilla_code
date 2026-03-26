@@ -1,177 +1,88 @@
-from datetime import datetime
-import string
-from schemas.messages import Message
-from schemas.users import User
-from schemas.chats import Chat
-def __init__(self):
-        self._messages = []
-
-def add_message(self, message: Message) -> None:
-        self._messages.append(message)
-
-def send_message(self, user: User, text: str) -> Message:
-        if not user.online:
-            raise ValueError(f"Пользователь '{user.username}' оффлайн и не может отправлять сообщения.")
-
-        if not text.strip():
-            raise ValueError("Нельзя отправить пустое сообщение.")
-
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        message = Message(sender=user, text=text, timestamp=timestamp)
-        self._messages.append(message)
-        return message
-
-def show_chat(self) -> None:
-        if not self._messages:
-            print("\nЧат пуст.\n")
-            return
-
-        print("\n--- Чат ---")
-        for message in self._messages:
-            print(message)
-        print("------------\n")
-
-def get_messages_by_user(self, user: User) -> list[Message]:
-        result = []
-
-        for message in self._messages:
-            if message.sender == user:
-                result.append(message)
-
-        return result
-
-def get_all_messages(self) -> list[Message]:
-        return self._messages.copy()
-
-def count_messages(self) -> int:
-        return len(self._messages)
-
-def last_message(self) -> Message | None:
-        if not self._messages:
-            return None
-        return self._messages[-1]
+from db.fake_db import chats, users
 
 
-def show_users(users: list[User]) -> None:
-    print("\nПользователи:")
-    for index, user in enumerate(users, start=1):
-        status = "online" if user.online else "offline"
-        print(f"{index}. {user.username} ({status})")
-    print()
+def generate_chat_id():
+    if not chats:
+        return 1
+    return max(chat["id"] for chat in chats) + 1
 
 
-def choose_user(users: list[User]) -> User | None:
-    show_users(users)
-
-    choice = input("Выбери номер пользователя: ").strip()
-
-    if not choice.isdigit():
-        print("Нужно ввести число.")
-        return None
-
-    index = int(choice) - 1
-
-    if index < 0 or index >= len(users):
-        print("Такого пользователя нет.")
-        return None
-
-    return users[index]
+def get_chats():
+    return chats
 
 
-def create_user() -> User | None:
-    print("\n--- Создание пользователя ---")
-    username = input("Введите username (только латиница и цифры): ").strip()
-
-    if not User.validate_username(username):
-        print("Некорректный username.")
-        return None
-
-    age_text = input("Введите возраст: ").strip()
-    if not age_text.isdigit():
-        print("Возраст должен быть числом.")
-        return None
-
-    phone_number = input("Введите номер телефона: ").strip()
-
-    online_text = input("Пользователь онлайн? (yes/no): ").strip().lower()
-    if online_text == "yes":
-        online = True
-    elif online_text == "no":
-        online = False
-    else:
-        print("Нужно ввести yes или no.")
-        return None
-
-    user = User(
-        username=username,
-        online=online,
-        age=int(age_text),
-        phone_number=phone_number
-    )
-
-    print(f"Пользователь {user.username} создан.\n")
-    return user
+def get_chat(chat_id: int):
+    for chat in chats:
+        if chat["id"] == chat_id:
+            return chat
+    return None
 
 
-def show_messages_by_user(chat: Chat, users: list[User]) -> None:
-    user = choose_user(users)
-    if user is None:
-        return
-
-    messages = chat.get_messages_by_user(user)
-
-    if not messages:
-        print(f"\nУ пользователя {user.username} пока нет сообщений.\n")
-        return
-
-    print(f"\nСообщения пользователя {user.username}:")
-    for message in messages:
-        print(message)
-    print()
+def user_exists(user_id: int):
+    for user in users:
+        if user["id"] == user_id:
+            return True
+    return False
 
 
-def change_user_status(users: list[User]) -> None:
-    user = choose_user(users)
-    if user is None:
-        return
+def create_chat(chat: dict):
+    if not chat["member_ids"]:
+        return {"Error": "Chat must have members"}
 
-    print(f"\nТекущий статус {user.username}: {'online' if user.online else 'offline'}")
-    action = input("Введи 'on' чтобы сделать online, 'off' чтобы сделать offline: ").strip().lower()
+    for user_id in chat["member_ids"]:
+        if not user_exists(user_id):
+            return {"Error": f"User with id {user_id} not found"}
 
-    if action == "on":
-        user.go_online()
-        print(f"{user.username} теперь online.\n")
-    elif action == "off":
-        user.go_offline()
-        print(f"{user.username} теперь offline.\n")
-    else:
-        print("Неизвестная команда.\n")
+    if not chat["is_group"] and len(chat["member_ids"]) != 2:
+        return {"Error": "Private chat must have exactly 2 members"}
 
+    new_chat = {
+        "id": generate_chat_id(),
+        "title": chat["title"],
+        "is_group": chat["is_group"],
+        "member_ids": chat["member_ids"],
+    }
 
-def send_message_menu(chat: Chat, users: list[User]) -> None:
-    user = choose_user(users)
-    if user is None:
-        return
-
-    text = input("Введите текст сообщения: ")
-
-    try:
-        message = chat.send_message(user, text)
-        print("Сообщение отправлено:")
-        print(message)
-        print()
-    except ValueError as error:
-        print("Ошибка:", error)
-        print()
+    chats.append(new_chat)
+    return new_chat
 
 
-def show_last_message(chat: Chat) -> None:
-    message = chat.last_message()
+def delete_chat(chat_id: int):
+    for i, chat in enumerate(chats):
+        if chat["id"] == chat_id:
+            deleted_chat = chats.pop(i)
+            return deleted_chat
+    return None
 
-    if message is None:
-        print("\nВ чате пока нет сообщений.\n")
-        return
 
-    print("\nПоследнее сообщение:")
-    print(message)
-    print()
+def add_member(chat_id: int, user_id: int):
+    chat = get_chat(chat_id)
+    if chat is None:
+        return {"Error": "Chat not found"}
+
+    if not user_exists(user_id):
+        return {"Error": "User not found"}
+
+    if not chat["is_group"]:
+        return {"Error": "Cannot change members in private chat"}
+
+    if user_id in chat["member_ids"]:
+        return {"Error": "User already in chat"}
+
+    chat["member_ids"].append(user_id)
+    return chat
+
+
+def remove_member(chat_id: int, user_id: int):
+    chat = get_chat(chat_id)
+    if chat is None:
+        return {"Error": "Chat not found"}
+
+    if not chat["is_group"]:
+        return {"Error": "Cannot change members in private chat"}
+
+    if user_id not in chat["member_ids"]:
+        return {"Error": "User is not in chat"}
+
+    chat["member_ids"].remove(user_id)
+    return chat
