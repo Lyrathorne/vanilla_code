@@ -19,10 +19,10 @@ def get_user_by_id(user_id: int):
           return user
 @router.post("/users")
 def create_user(user: User):
-        return service.create_user(user.dict())
+        return service.create_user(user.model_dump())
 @router.put("/users/{user_id}")
 def redact_user(user_id : int, new_user : User):
-        result = service.redact_user(user_id, new_user.dict())
+        result = service.redact_user(user_id, new_user.model_dump())
         if result == None:
                 return{"Error" : "this user doesn`t exist"}
         return result
