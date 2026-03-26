@@ -29,7 +29,7 @@ def redact_user(user_id : int, new_user : dict):
                               "id": user["id"],
                               **new_user
                               }
-                    return users[i]
+                              return users[i]
           return None
           
 def delete_user(user_id: int):
