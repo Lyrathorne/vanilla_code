@@ -27,6 +27,7 @@ def redact_user(user_id : int, new_user : User):
                 return{"Error" : "this user doesn`t exist"}
         return result
 @router.delete("/users/{user_id}")
+
 def delete_user(user_id: int):
           result = service.delete_user(user_id)
           if result is None:
