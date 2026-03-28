@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 import services.users as service
 from schemas.users import User
 from database import get_db
+from fastapi import HTTPException
 
 router = APIRouter()
 
@@ -26,7 +27,7 @@ def get_all_users(db: Session = Depends(get_db)):
 def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
     user = service.get_user(db, user_id)
     if user is None:
-        return {"Error": "User not found"}
+        raise HTTPException(status_code= 404, detail= "User not found")
     return user
 
 
@@ -39,7 +40,8 @@ def create_user(user: User, db: Session = Depends(get_db)):
 def redact_user(user_id: int, new_user: User, db: Session = Depends(get_db)):
     result = service.redact_user(db, user_id, new_user.dict())
     if result is None:
-        return {"Error": "this user doesn`t exist"}
+        
+        raise HTTPException(status_code= 400, detail= "this user doesn`t exist")
     return result
 
 
@@ -47,5 +49,5 @@ def redact_user(user_id: int, new_user: User, db: Session = Depends(get_db)):
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     result = service.delete_user(db, user_id)
     if result is None:
-        return {"Error": "this user doesn`t exist"}
+        raise HTTPException(status_code= 400, detail= "this user doesn`t exist")
     return result
