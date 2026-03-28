@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from models.user import User
+from fastapi import HTTPException
 
 
 def get_users(db: Session):
@@ -13,11 +14,13 @@ def get_user(db: Session, user_id: int):
 def create_user(db: Session, user: dict):
     existing_username = db.query(User).filter(User.username == user["username"]).first()
     if existing_username:
-        return {"Error": "this name already exists"}
+        
+        raise HTTPException(status_code= 400, detail= "this name already exists")
 
     existing_email = db.query(User).filter(User.email == user["email"]).first()
     if existing_email:
-        return {"Error": "Email already exists"}
+        
+        raise HTTPException(status_code= 400, detail= "Email already exists")
 
     db_user = User(
         username=user["username"],
@@ -42,7 +45,7 @@ def redact_user(db: Session, user_id: int, new_user: dict):
         .first()
     )
     if existing_username:
-        return {"Error": "this name already exists"}
+        raise HTTPException(status_code= 400, detail= "this name already exists")
 
     existing_email = (
         db.query(User)
@@ -50,7 +53,7 @@ def redact_user(db: Session, user_id: int, new_user: dict):
         .first()
     )
     if existing_email:
-        return {"Error": "Email already exists"}
+        raise HTTPException(status_code= 400, detail= "Email already exists")
 
     user.username = new_user["username"]
     user.email = new_user["email"]
