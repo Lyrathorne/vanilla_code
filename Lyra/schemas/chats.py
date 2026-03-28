@@ -2,9 +2,9 @@ from pydantic import BaseModel, Field
 
 
 class ChatCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=50)
-    is_group: bool
-    member_ids: list[int]
+    title: str
+    is_group: bool = True
+    password: str | None = None
 
 
 class ChatOut(BaseModel):
@@ -12,3 +12,5 @@ class ChatOut(BaseModel):
     title: str
     is_group: bool
     member_ids: list[int]
+   
+
