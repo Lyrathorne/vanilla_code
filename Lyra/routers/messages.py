@@ -4,6 +4,8 @@ from schemas.messages import Message
 import services.messages as service
 from database import get_db
 from fastapi import HTTPException
+from dependencies import get_current_user
+from models.user import User
 
 router = APIRouter()
 
@@ -23,7 +25,10 @@ def get_message_by_id(message_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/messages")
-def create_message(message: Message, db: Session = Depends(get_db)):
+def create_message(message: Message, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if message.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You cannot send messages as another user")
+
     return service.create_message(db, message.dict())
 
 
