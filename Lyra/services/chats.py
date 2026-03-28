@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from models.chat import Chat
 from models.user import User
+from fastapi import HTTPException
 
 
 
@@ -29,17 +30,19 @@ def get_chat(db: Session, chat_id: int):
 
 def create_chat(db: Session, chat: dict):
     if not chat["member_ids"]:
-        return {"Error": "Chat must have members"}
+        raise HTTPException(status_code= 403, detail= "Chat must have members")
 
     members = []
     for user_id in chat["member_ids"]:
         user = db.query(User).filter(User.id == user_id).first()
         if user is None:
-            return {"Error": f"User with id {user_id} not found"}
+            
+            raise HTTPException(status_code= 404, detail= f"User with id {user_id} not found")
         members.append(user)
 
     if not chat["is_group"] and len(members) != 2:
-        return {"Error": "Private chat must have exactly 2 members"}
+        
+        raise HTTPException(status_code= 403, detail= "Private chat must have exactly 2 members")
 
     db_chat = Chat(
         title=chat["title"],
@@ -76,17 +79,21 @@ def delete_chat(db: Session, chat_id: int):
 def add_member(db: Session, chat_id: int, user_id: int):
     chat = db.query(Chat).filter(Chat.id == chat_id).first()
     if chat is None:
-        return {"Error": "Chat not found"}
+        
+        raise HTTPException(status_code= 404, detail= "Chat not found")
 
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
-        return {"Error": "User not found"}
+        
+        raise HTTPException(status_code= 404, detail= "User not found")
 
     if not chat.is_group:
-        return {"Error": "Cannot change members in private chat"}
+       
+        raise HTTPException(status_code= 403, detail= "Cannot change members in private chat")
 
     if user in chat.members:
-        return {"Error": "User already in chat"}
+        
+        raise HTTPException(status_code= 400, detail= "User already in chat")
 
     chat.members.append(user)
     db.commit()
@@ -103,17 +110,17 @@ def add_member(db: Session, chat_id: int, user_id: int):
 def remove_member(db: Session, chat_id: int, user_id: int):
     chat = db.query(Chat).filter(Chat.id == chat_id).first()
     if chat is None:
-        return {"Error": "Chat not found"}
+        raise HTTPException(status_code= 404, detail= "Chat not found")
 
     if not chat.is_group:
-        return {"Error": "Cannot change members in private chat"}
+        raise HTTPException(status_code= 403, detail= "Cannot change members in private chat")
 
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
-        return {"Error": "User not found"}
+        raise HTTPException(status_code= 404, detail= "User not found")
 
     if user not in chat.members:
-        return {"Error": "User is not in chat"}
+        raise HTTPException(status_code= 400, detail= "User is not in chat")
 
     chat.members.remove(user)
     db.commit()
