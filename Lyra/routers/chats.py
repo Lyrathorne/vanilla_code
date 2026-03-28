@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from schemas.chats import Chat
 import services.chats as service
 from database import get_db
+from fastapi import HTTPException
 
 router = APIRouter()
 
@@ -16,7 +17,7 @@ def get_all_chats(db: Session = Depends(get_db)):
 def get_chat_by_id(chat_id: int, db: Session = Depends(get_db)):
     chat = service.get_chat_with_members(db, chat_id)
     if chat is None:
-        return {"Error": "Chat not found"}
+        raise HTTPException(status_code= 404, detail= "Chat not found")
     return chat
 
 
@@ -29,7 +30,7 @@ def create_chat(chat: Chat, db: Session = Depends(get_db)):
 def delete_chat(chat_id: int, db: Session = Depends(get_db)):
     result = service.delete_chat(db, chat_id)
     if result is None:
-        return {"Error": "Chat not found"}
+        raise HTTPException(status_code= 404, detail= "Chat not found")
     return result
 
 
