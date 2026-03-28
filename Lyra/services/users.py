@@ -1,6 +1,7 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.user import User
-from fastapi import HTTPException
+from auth import hash_password
 
 
 def get_users(db: Session):
@@ -8,24 +9,33 @@ def get_users(db: Session):
 
 
 def get_user(db: Session, user_id: int):
-    return db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+def get_user_by_username(db: Session, username: str):
+    user = db.query(User).filter(User.username == username).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 
 def create_user(db: Session, user: dict):
     existing_username = db.query(User).filter(User.username == user["username"]).first()
     if existing_username:
-        
-        raise HTTPException(status_code= 400, detail= "this name already exists")
+        raise HTTPException(status_code=400, detail="This name already exists")
 
     existing_email = db.query(User).filter(User.email == user["email"]).first()
     if existing_email:
-        
-        raise HTTPException(status_code= 400, detail= "Email already exists")
+        raise HTTPException(status_code=400, detail="Email already exists")
 
     db_user = User(
         username=user["username"],
         email=user["email"],
-        is_active=user["is_active"]
+        is_active=user.get("is_active", True),
+        hashed_password=hash_password(user["password"])
     )
 
     db.add(db_user)
@@ -37,7 +47,7 @@ def create_user(db: Session, user: dict):
 def redact_user(db: Session, user_id: int, new_user: dict):
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
-        return None
+        raise HTTPException(status_code=404, detail="User not found")
 
     existing_username = (
         db.query(User)
@@ -45,7 +55,7 @@ def redact_user(db: Session, user_id: int, new_user: dict):
         .first()
     )
     if existing_username:
-        raise HTTPException(status_code= 400, detail= "this name already exists")
+        raise HTTPException(status_code=400, detail="This name already exists")
 
     existing_email = (
         db.query(User)
@@ -53,7 +63,7 @@ def redact_user(db: Session, user_id: int, new_user: dict):
         .first()
     )
     if existing_email:
-        raise HTTPException(status_code= 400, detail= "Email already exists")
+        raise HTTPException(status_code=400, detail="Email already exists")
 
     user.username = new_user["username"]
     user.email = new_user["email"]
@@ -67,7 +77,7 @@ def redact_user(db: Session, user_id: int, new_user: dict):
 def delete_user(db: Session, user_id: int):
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
-        return None
+        raise HTTPException(status_code=404, detail="User not found")
 
     db.delete(user)
     db.commit()
