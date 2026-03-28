@@ -68,8 +68,7 @@ def delete_chat(db: Session, chat_id: int):
     db.delete(chat)
     db.commit()
 
-    if chat_id in chat_members:
-        del chat_members[chat_id]
+    
 
     return {"message": "Chat deleted"}
 
