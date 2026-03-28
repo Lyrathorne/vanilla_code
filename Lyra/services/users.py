@@ -1,63 +1,86 @@
-from db.fake_db import users
-
-def get_users():
-          return users
-def get_user(user_id: int):
-          
-          for user in users:
-                    if user["id"] == user_id:
-                              return user
-          return None
-def create_user(user: dict):
-          for u in users:
-                    if u["username"] == user["username"]:
-                              return {"Error" : "this name already exists"}
-                    if u["email"] == user["email"]:
-                              return {"Error": "Email already exists"}
-          new_user = {
-          "id": generate_id(),
-          **user
-          }
-
-          users.append(new_user)
-          return new_user
-def redact_user(user_id : int, new_user : dict):
-          
-          for i, user in enumerate(users):
-                    if user["id"] == user_id:
-                              users[i] = {
-                              "id": user["id"],
-                              **new_user
-                              }
-                              return users[i]
-          return None
-          
-def delete_user(user_id: int):
-    for i, user in enumerate(users):
-        if user["id"] == user_id:
-            users.pop(i)
-            return True
-    return None
-def generate_id():
-    if not users:
-        return 1
-    return max(user["id"] for user in users) + 1
-def search_user(username: str):
-          results = []
-          for user in users:
-                if username.lower() in user["username"].lower():
-                        results.append(user)
-          return results
-def search_active():
-          results = []
-          for user in users:
-                  if user["is_active"] == True:
-                          results.append(user)
-          return results
-          
-                
-        
-        
+from sqlalchemy.orm import Session
+from models.user import User
 
 
-        
+def get_users(db: Session):
+    return db.query(User).all()
+
+
+def get_user(db: Session, user_id: int):
+    return db.query(User).filter(User.id == user_id).first()
+
+
+def create_user(db: Session, user: dict):
+    existing_username = db.query(User).filter(User.username == user["username"]).first()
+    if existing_username:
+        return {"Error": "this name already exists"}
+
+    existing_email = db.query(User).filter(User.email == user["email"]).first()
+    if existing_email:
+        return {"Error": "Email already exists"}
+
+    db_user = User(
+        username=user["username"],
+        email=user["email"],
+        is_active=user["is_active"]
+    )
+
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def redact_user(db: Session, user_id: int, new_user: dict):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        return None
+
+    existing_username = (
+        db.query(User)
+        .filter(User.username == new_user["username"], User.id != user_id)
+        .first()
+    )
+    if existing_username:
+        return {"Error": "this name already exists"}
+
+    existing_email = (
+        db.query(User)
+        .filter(User.email == new_user["email"], User.id != user_id)
+        .first()
+    )
+    if existing_email:
+        return {"Error": "Email already exists"}
+
+    user.username = new_user["username"]
+    user.email = new_user["email"]
+    user.is_active = new_user["is_active"]
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def delete_user(db: Session, user_id: int):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        return None
+
+    db.delete(user)
+    db.commit()
+    return {"message": "User deleted"}
+
+
+def search_users(db: Session, username: str):
+    all_users = db.query(User).all()
+    results = []
+
+    for user in all_users:
+        if username.lower() in user.username.lower():
+            results.append(user)
+
+    return results
+
+
+def search_active(db: Session):
+    return db.query(User).filter(User.is_active == True).all()
