@@ -10,5 +10,6 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     is_active = Column(Boolean, default=True)
+    hashed_password = Column(String, nullable=False)
 
     chats = relationship("Chat", secondary="chat_members", back_populates="members")
