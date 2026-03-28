@@ -4,6 +4,7 @@ from models.message import Message
 from models.user import User
 from models.chat import Chat
 import services.chats as chat_service
+from fastapi import HTTPException
 
 
 def get_messages(db: Session):
@@ -17,14 +18,14 @@ def get_message(db: Session, message_id: int):
 def create_message(db: Session, message: dict):
     chat = db.query(Chat).filter(Chat.id == message["chat_id"]).first()
     if chat is None:
-        return {"Error": "Chat not found"}
+        raise HTTPException(status_code= 404, detail= "Chat not found")
 
     user = db.query(User).filter(User.id == message["sender_id"]).first()
     if user is None:
-        return {"Error": "User not found"}
+        raise HTTPException(status_code= 404, detail= "User not found")
 
     if not user.is_active:
-        return {"Error": "User is offline"}
+        raise HTTPException(status_code= 400, detail= "User is offline")
 
     
 
