@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from schemas.messages import Message
 import services.messages as service
 from database import get_db
+from fastapi import HTTPException
 
 router = APIRouter()
 
@@ -16,7 +17,8 @@ def get_all_messages(db: Session = Depends(get_db)):
 def get_message_by_id(message_id: int, db: Session = Depends(get_db)):
     message = service.get_message(db, message_id)
     if message is None:
-        return {"Error": "Message not found"}
+        
+        raise HTTPException(status_code= 404, detail= "Message not found")
     return message
 
 
@@ -29,7 +31,7 @@ def create_message(message: Message, db: Session = Depends(get_db)):
 def delete_message(message_id: int, db: Session = Depends(get_db)):
     result = service.delete_message(db, message_id)
     if result is None:
-        return {"Error": "Message not found"}
+        raise HTTPException(status_code= 404, detail= "Message not found")
     return result
 
 
@@ -42,5 +44,5 @@ def get_messages_by_chat(chat_id: int, db: Session = Depends(get_db)):
 def mark_message_as_read(message_id: int, db: Session = Depends(get_db)):
     result = service.mark_as_read(db, message_id)
     if result is None:
-        return {"Error": "Message not found"}
+        raise HTTPException(status_code= 404, detail= "Message not found")
     return result
