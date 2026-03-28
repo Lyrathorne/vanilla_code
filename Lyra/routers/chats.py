@@ -1,44 +1,62 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from schemas.chats import Chat
+from schemas.chats import ChatCreate, ChatOut
 import services.chats as service
 from database import get_db
-from fastapi import HTTPException
+from dependencies import get_current_user
+from models.user import User
 
 router = APIRouter()
 
 
-@router.get("/chats")
+@router.get("/chats", response_model=list[ChatOut])
 def get_all_chats(db: Session = Depends(get_db)):
     return service.get_all_chats_with_members(db)
 
 
-@router.get("/chats/{chat_id}")
+@router.get("/chats/{chat_id}", response_model=ChatOut)
 def get_chat_by_id(chat_id: int, db: Session = Depends(get_db)):
-    chat = service.get_chat_with_members(db, chat_id)
-    if chat is None:
-        raise HTTPException(status_code= 404, detail= "Chat not found")
-    return chat
+    return service.get_chat_with_members(db, chat_id)
 
 
-@router.post("/chats")
-def create_chat(chat: Chat, db: Session = Depends(get_db)):
-    return service.create_chat(db, chat.dict())
+@router.post("/chats", response_model=ChatOut)
+def create_chat(
+    chat: ChatCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    data = chat.dict()
+
+    if current_user.id not in data["member_ids"]:
+        data["member_ids"].append(current_user.id)
+
+    return service.create_chat(db, data)
 
 
 @router.delete("/chats/{chat_id}")
-def delete_chat(chat_id: int, db: Session = Depends(get_db)):
-    result = service.delete_chat(db, chat_id)
-    if result is None:
-        raise HTTPException(status_code= 404, detail= "Chat not found")
-    return result
+def delete_chat(
+    chat_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return service.delete_chat(db, chat_id)
 
 
-@router.post("/chats/{chat_id}/members/{user_id}")
-def add_member(chat_id: int, user_id: int, db: Session = Depends(get_db)):
+@router.post("/chats/{chat_id}/members/{user_id}", response_model=ChatOut)
+def add_member(
+    chat_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     return service.add_member(db, chat_id, user_id)
 
 
-@router.delete("/chats/{chat_id}/members/{user_id}")
-def remove_member(chat_id: int, user_id: int, db: Session = Depends(get_db)):
+@router.delete("/chats/{chat_id}/members/{user_id}", response_model=ChatOut)
+def remove_member(
+    chat_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     return service.remove_member(db, chat_id, user_id)
