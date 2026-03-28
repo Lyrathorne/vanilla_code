@@ -16,5 +16,7 @@ class Chat(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     is_group = Column(Boolean, default=False)
+    hashed_password = Column(String, nullable=False)
+
 
     members = relationship("User", secondary=chat_members, back_populates="chats")
