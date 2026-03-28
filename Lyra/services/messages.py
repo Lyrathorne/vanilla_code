@@ -1,119 +1,67 @@
 from datetime import datetime
-from db.fake_db import messages, users, chats
+from sqlalchemy.orm import Session
+from models.message import Message
+from models.user import User
+from models.chat import Chat
+import services.chats as chat_service
 
 
-def generate_message_id():
-    if not messages:
-        return 1
-    return max(message["id"] for message in messages) + 1
+def get_messages(db: Session):
+    return db.query(Message).all()
 
 
-def get_messages():
-    return messages
+def get_message(db: Session, message_id: int):
+    return db.query(Message).filter(Message.id == message_id).first()
 
 
-def get_message(message_id: int):
-    for message in messages:
-        if message["id"] == message_id:
-            return message
-    return None
-
-
-def get_chat(chat_id: int):
-    for chat in chats:
-        if chat["id"] == chat_id:
-            return chat
-    return None
-
-
-def get_user(user_id: int):
-    for user in users:
-        if user["id"] == user_id:
-            return user
-    return None
-
-
-def create_message(message: dict):
-    chat = get_chat(message["chat_id"])
+def create_message(db: Session, message: dict):
+    chat = db.query(Chat).filter(Chat.id == message["chat_id"]).first()
     if chat is None:
         return {"Error": "Chat not found"}
 
-    user = get_user(message["sender_id"])
+    user = db.query(User).filter(User.id == message["sender_id"]).first()
     if user is None:
         return {"Error": "User not found"}
 
-    if not user["is_active"]:
+    if not user.is_active:
         return {"Error": "User is offline"}
 
-    if message["sender_id"] not in chat["member_ids"]:
-        return {"Error": "User is not a member of this chat"}
+    
 
-    if not message["text"].strip():
-        return {"Error": "Message text cannot be empty"}
+    db_message = Message(
+        chat_id=message["chat_id"],
+        sender_id=message["sender_id"],
+        text=message["text"],
+        created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        is_read=False
+    )
 
-    new_message = {
-        "id": generate_message_id(),
-        "chat_id": message["chat_id"],
-        "sender_id": message["sender_id"],
-        "text": message["text"],
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "is_read": False,
-    }
-
-    messages.append(new_message)
-    return new_message
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_message)
+    return db_message
 
 
-def delete_message(message_id: int):
-    for i, message in enumerate(messages):
-        if message["id"] == message_id:
-            deleted_message = messages.pop(i)
-            return deleted_message
-    return None
-
-
-def get_messages_by_chat(chat_id: int):
-    result = []
-
-    for message in messages:
-        if message["chat_id"] == chat_id:
-            result.append(message)
-
-    return result
-
-
-def get_messages_by_user(user_id: int):
-    result = []
-
-    for message in messages:
-        if message["sender_id"] == user_id:
-            result.append(message)
-
-    return result
-
-
-def count_messages_in_chat(chat_id: int):
-    count = 0
-
-    for message in messages:
-        if message["chat_id"] == chat_id:
-            count += 1
-
-    return count
-
-
-def get_last_message(chat_id: int):
-    chat_messages = get_messages_by_chat(chat_id)
-
-    if not chat_messages:
+def delete_message(db: Session, message_id: int):
+    message = db.query(Message).filter(Message.id == message_id).first()
+    if message is None:
         return None
 
-    return chat_messages[-1]
+    db.delete(message)
+    db.commit()
+    return {"message": "Message deleted"}
 
 
-def mark_as_read(message_id: int):
-    for i, message in enumerate(messages):
-        if message["id"] == message_id:
-            messages[i]["is_read"] = True
-            return messages[i]
-    return None
+def get_messages_by_chat(db: Session, chat_id: int):
+    return db.query(Message).filter(Message.chat_id == chat_id).all()
+
+
+def mark_as_read(db: Session, message_id: int):
+    message = db.query(Message).filter(Message.id == message_id).first()
+    if message is None:
+        return None
+
+    message.is_read = True
+    db.commit()
+    db.refresh(message)
+    return message
