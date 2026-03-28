@@ -22,3 +22,9 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
         raise HTTPException(status_code=401, detail="User not found")
 
     return user
+
+
+
+def require_same_user(user_id: int, current_user):
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="You can only edit your own profile")
