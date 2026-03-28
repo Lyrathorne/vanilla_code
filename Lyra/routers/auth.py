@@ -1,24 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from schemas.auth import UserRegister, UserLogin
+from schemas.auth import UserRegister, UserLogin, Token
+from schemas.users import UserOut
 import services.auth as service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-
-
-@router.post("/register")
+@router.post("/register", response_model=UserOut)
 def register(user: UserRegister, db: Session = Depends(get_db)):
-    result = service.register_user(db, user.dict())
-    if isinstance(result, dict) and "Error" in result:
-        raise HTTPException(status_code=400, detail=result["Error"])
-    return result
+    return service.register_user(db, user.dict())
 
 
-
-@router.post("/login")
+@router.post("/login", response_model=Token)
 def login(user: UserLogin, db: Session = Depends(get_db)):
     result = service.login_user(db, user.username, user.password)
     if result is None:
