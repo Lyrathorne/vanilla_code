@@ -21,16 +21,16 @@ def get_chat_by_id(chat_id: int, db: Session = Depends(get_db)):
 
 @router.post("/chats", response_model=ChatOut)
 def create_chat(
-    chat: ChatCreate,
+    data: ChatCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user)
 ):
-    data = chat.dict()
+    chat_data = data.model_dump()
 
-    if current_user.id not in data["member_ids"]:
-        data["member_ids"].append(current_user.id)
+    if current_user.id not in chat_data["member_ids"]:
+        chat_data["member_ids"].append(current_user.id)
 
-    return service.create_chat(db, data)
+    return service.create_chat(db, chat_data)
 
 
 @router.delete("/chats/{chat_id}")
