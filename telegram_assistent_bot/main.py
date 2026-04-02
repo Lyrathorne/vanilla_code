@@ -1,24 +1,24 @@
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
-from aiogram.types import Message
-from database.models import User, Task
-from database.db import init_db
-from database.db import SessionLocal
-from sqlalchemy import select
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from aiogram.filters import Command
+from aiogram.types import (
+    Message,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    CallbackQuery
+)
 from sqlalchemy import select
 
+from database.models import User, Task
+from database.db import init_db, SessionLocal
 from config import BOT_TOKEN
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-dp = Dispatcher()
-
-keyboard = ReplyKeyboardMarkup(
+main_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="/tasks"), KeyboardButton(text="/add")],
         [KeyboardButton(text="/done")]
@@ -31,35 +31,35 @@ async def start_handler(message: Message):
     telegram_id = message.from_user.id
     username = message.from_user.username
     first_name = message.from_user.first_name
+
     async with SessionLocal() as session:
-        query = select(User).where(User.telegram_id == telegram_id) 
+        query = select(User).where(User.telegram_id == telegram_id)
         result = await session.execute(query)
         user = result.scalar_one_or_none()
 
         if user is None:
             new_user = User(
-                telegram_id= telegram_id ,
-                username= username,
-                first_name= first_name
+                telegram_id=telegram_id,
+                username=username,
+                first_name=first_name
             )
             session.add(new_user)
             await session.commit()
 
             await message.answer(
-            "Привет! Я сохранил тебя в базе.",
-            reply_markup=keyboard
-                )
-        
+                "Привет! Я сохранил тебя в базе.",
+                reply_markup=main_keyboard
+            )
         else:
             await message.answer(
                 "Привет! Ты уже есть в базе.",
-                reply_markup=keyboard
-                )
+                reply_markup=main_keyboard
+            )
 
 @dp.message(Command("add"))
 async def add_handler(message: Message):
     telegram_id = message.from_user.id
-    text = message.text.replace("/add", "").strip()
+    text = message.text.replace("/add", "", 1).strip()
 
     if not text:
         await message.answer("Напиши задачу после /add")
@@ -75,8 +75,9 @@ async def add_handler(message: Message):
             return
 
         new_task = Task(
-            creator_id= user.id,
-            text= text
+            creator_id=user.id,
+            text=text,
+            status=False
         )
         session.add(new_task)
         await session.commit()
@@ -108,7 +109,7 @@ async def tasks_handler(message: Message):
             status_icon = "✅" if task.status else "❌"
 
             if not task.status:
-                keyboard = InlineKeyboardMarkup(
+                inline_kb = InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
                             InlineKeyboardButton(
@@ -121,20 +122,18 @@ async def tasks_handler(message: Message):
 
                 await message.answer(
                     f"{index}. {status_icon} {task.text}",
-                    reply_markup=keyboard
+                    reply_markup=inline_kb
                 )
             else:
                 await message.answer(
                     f"{index}. {status_icon} {task.text}"
                 )
 
-
 @dp.message(Command("done"))
 async def done_handler(message: Message):
     telegram_id = message.from_user.id
-    text = message.text.replace("/done", "").strip()
+    text = message.text.replace("/done", "", 1).strip()
 
-    
     if not text.isdigit():
         await message.answer("Напиши номер задачи: /done 1")
         return
@@ -142,7 +141,6 @@ async def done_handler(message: Message):
     task_number = int(text)
 
     async with SessionLocal() as session:
-        
         user_query = select(User).where(User.telegram_id == telegram_id)
         user_result = await session.execute(user_query)
         user = user_result.scalar_one_or_none()
@@ -151,7 +149,6 @@ async def done_handler(message: Message):
             await message.answer("Сначала используй /start")
             return
 
-        
         tasks_query = select(Task).where(Task.creator_id == user.id)
         tasks_result = await session.execute(tasks_query)
         tasks = tasks_result.scalars().all()
@@ -160,13 +157,11 @@ async def done_handler(message: Message):
             await message.answer("У тебя нет задач")
             return
 
-        
         if task_number < 1 or task_number > len(tasks):
             await message.answer("Неверный номер задачи")
             return
 
         task = tasks[task_number - 1]
-
         task.status = True
         await session.commit()
 
@@ -175,9 +170,21 @@ async def done_handler(message: Message):
 @dp.callback_query(lambda callback: callback.data.startswith("done_"))
 async def done_task_callback(callback: CallbackQuery):
     task_id = int(callback.data.split("_")[1])
+    telegram_id = callback.from_user.id
 
     async with SessionLocal() as session:
-        task_query = select(Task).where(Task.id == task_id)
+        user_query = select(User).where(User.telegram_id == telegram_id)
+        user_result = await session.execute(user_query)
+        user = user_result.scalar_one_or_none()
+
+        if user is None:
+            await callback.answer("Сначала используй /start", show_alert=True)
+            return
+
+        task_query = select(Task).where(
+            Task.id == task_id,
+            Task.creator_id == user.id
+        )
         task_result = await session.execute(task_query)
         task = task_result.scalar_one_or_none()
 
@@ -188,14 +195,13 @@ async def done_task_callback(callback: CallbackQuery):
         task.status = True
         await session.commit()
 
+    new_text = callback.message.text.replace("❌", "✅", 1)
+    await callback.message.edit_text(new_text)
     await callback.answer("Задача отмечена как выполненная ✅")
-    await callback.message.edit_text(f"✅ {callback.message.text}")
-
-
-
 
 async def main():
     await init_db()
+    await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
