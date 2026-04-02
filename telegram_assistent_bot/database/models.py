@@ -1,4 +1,4 @@
-import db
+from database.db import Base
 from sqlalchemy import Column, Integer, String,  DateTime
 from datetime import datetime, timezone
 def get_time():
@@ -6,7 +6,7 @@ def get_time():
         return(current_time)
         
 
-class User(db.Base):
+class User(Base):
           __tablename__ = "users"
           id = Column("id", Integer, primary_key=True)
           telegram_id = Column("telegram_id", Integer, unique=True)
